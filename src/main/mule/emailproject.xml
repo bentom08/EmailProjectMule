@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="55ae8e65-6590-4838-ac05-e1d77faeae84" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<flow name="createAccountFlow" doc:id="84f0c13a-5901-4397-bfae-9cb3d7079917" >
+		<http:listener doc:name="Listener" doc:id="59400318-e630-46cc-9fbf-751a49d038f8" config-ref="HTTP_Listener_config" path="/createAccount"/>
+		<set-variable value="#[message.payload.username]" doc:name="Set Variable" doc:id="335f6344-6f46-4481-ac55-b9f8668efb60" variableName="username"/>
+		<set-variable value="#[message.payload.password]" doc:name="Set Variable" doc:id="4184614a-260c-4c45-9c0f-819686ddc5dd" variableName="password"/>
+		<http:request method="GET" doc:name="Request" doc:id="10bfbb97-8993-4c69-8d49-5ad67461b1b9" url='#["http://localhost:8082/usernameExists/" ++ vars.username as String]'>
+			<http:body ><![CDATA[#[output application/json
+---
+payload]]]></http:body>
+		</http:request>
+		<choice doc:name="Choice" doc:id="e3963cf5-c290-4d11-873b-3dd6cb543193" >
+			<when expression="#[message.payload == true]">
+				<ee:transform doc:name="Transform Message" doc:id="489a40a9-4ee0-400a-86b9-ca14bb1a25df" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "Username Already Exists in Database"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<when expression="#[message.payload == false]">
+				<http:request method="POST" doc:name="Request" doc:id="25ad8a06-ec52-4184-afc5-239a3e85a64a" url="http://localhost:8082/createAccount">
+					<http:body ><![CDATA[#[output application/json
+---
+{
+	"username": vars.username,
+	"password": vars.password
+}]]]></http:body>
+				</http:request>
+				<ee:transform doc:name="Transform Message" doc:id="0a74835c-5e4f-41ad-88a9-6a655e8d3cd2" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "Account Created"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+		</choice>
+	</flow>
+	<flow name="loginFlow" doc:id="51dc07b2-5ead-4bdf-b346-af75690e0a32" >
+		<http:listener doc:name="Listener" doc:id="f50bacac-aad7-4333-9c18-5e5d262efcd1" config-ref="HTTP_Listener_config" path="/login"/>
+		<http:request method="POST" doc:name="Request" doc:id="b7a4620e-d1c2-471a-ba0b-40db95068ba7" url="http://localhost:8082/isLoginValid">
+			<http:body ><![CDATA[#[output application/json
+---
+{
+	"username": message.payload.username,
+	"password": message.payload.password
+}]]]></http:body>
+		</http:request>
+		<choice doc:name="Choice" doc:id="19889a0f-6bac-4e8f-9126-ab75b0017a0a" >
+			<when expression="#[message.payload == true]">
+				<ee:transform doc:name="Transform Message" doc:id="29b8722c-1093-4e8e-a4a8-3f1069c22d0a" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "valid"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<when expression="#[message.payload == false]">
+				<ee:transform doc:name="Transform Message" doc:id="4992214e-ccdd-485a-8954-0eb8fde1de9c" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "invalid"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+		</choice>
+	</flow>
+</mule>
